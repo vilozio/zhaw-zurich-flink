@@ -1,0 +1,205 @@
+version: '2.2'
+services:
+  ##################
+  # FLINK CLUSTER  #
+  ##################
+  # Flink JobManager - the master node of the Flink cluster.
+  jobmanager:
+    build: ./flink
+    hostname: jobmanager
+    container_name: jobmanager
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    volumes:
+      # Add current directory to the container `/data/` to make the files available.
+      - .:/data/
+    environment:
+    - |
+      FLINK_PROPERTIES=
+      jobmanager.rpc.address: jobmanager
+      rest.flamegraph.enabled: true
+  # Flink TaskManager - the worker nodes of the Flink cluster.
+  taskmanager:
+    build: ./flink
+    hostname: taskmanager
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    deploy:
+      replicas: 2
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 4
+  # Optional Flink SQL Client - to interact with Flink using SQL.
+  sql-client:
+    build: ./flink
+    command: bin/sql-client.sh
+    depends_on:
+      - jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        rest.address: jobmanager
+  
+  ##################
+  # POSTGRES DB    #
+  ##################
+  # psql -h localhost -U postgres
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    # Run with logical replication enabled for Debezium.
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+    volumes:
+      # The official postgres docker image will run .sql scripts 
+      # found in the /docker-entrypoint-initdb.d/ folder.
+      - ./postgres/initdb:/docker-entrypoint-initdb.d/
+  # Optional pgAdmin to monitor the Postgres database.
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: always
+    ports:
+      - "8888:80"
+    links:
+      - postgres
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user-name@domain-name.com
+      PGADMIN_DEFAULT_PASSWORD: password
+
+  ##################
+  # KAFKA CLUSTER  #
+  ##################
+  # Zookeeper is required by Kafka. It is used to keep metadata,
+  # and also used to promote a new leader when the current leader fails.
+  zookeeper:
+    image: quay.io/debezium/zookeeper:2.4
+    ports:
+     - 2181:2181
+     - 2888:2888
+     - 3888:3888
+  # Kafka single-node.
+  kafka:
+    image: quay.io/debezium/kafka:2.4
+    ports:
+     - 9092:9092
+    links:
+     - zookeeper
+    environment:
+     - ZOOKEEPER_CONNECT=zookeeper:2181
+  # Kafka UI to view the Kafka cluster topics.
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    ports:
+      - 8080:8080
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      DYNAMIC_CONFIG_ENABLED: 'true'
+  # Optional Kafka Cat to interact with Kafka from the command line.
+  kcat:
+    image: edenhill/kcat:1.7.1
+    container_name: kcat
+    restart: "no"
+    entrypoint: tail -f /dev/null
+  
+  ##################
+  # Debezium       #
+  ##################
+  # See the documentation of REST API.
+  # https://docs.confluent.io/platform/current/connect/references/restapi.html
+  kafka-connect:
+    image: quay.io/debezium/connect:2.7
+    ports:
+     - 8083:8083
+    depends_on:
+      - kafka
+      - postgres
+    environment:
+     - BOOTSTRAP_SERVERS=kafka:9092
+     - GROUP_ID=1
+     - CONFIG_STORAGE_TOPIC=my_connect_configs
+     - OFFSET_STORAGE_TOPIC=my_connect_offsets
+     - STATUS_STORAGE_TOPIC=my_connect_statuses
+    
+  ##################
+  # STORAGE - S3   #
+  ##################
+  # MinIO is an S3-compatible object storage server.
+  # It is used to store the data for Iceberg tables.
+  minio:
+    image: minio/minio
+    container_name: minio
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
+    ports:
+      - 9001:9001
+      - 9000:9000
+    command: ["server", "/data", "--console-address", ":9001"]
+  # MinIO Client to interact with MinIO from the command line.
+  # It is used to create the `warehouse` bucket for Iceberg tables.
+  mc:
+    depends_on:
+      - minio
+    image: minio/mc
+    container_name: mc
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc config host add minio http://minio:9000 admin password) do echo '...waiting...' && sleep 1; done;
+      /usr/bin/mc rm -r --force minio/warehouse;
+      /usr/bin/mc mb minio/warehouse;
+      tail -f /dev/null
+      " 
+
+  ##################
+  # Metastore      #
+  ##################
+  # Keeps the metadata for Iceberg tables.
+  # Also can be used by Flink to keep metadata for Flink tables.
+  hive-metastore:
+    container_name: hms  # Will be seen as the hostname by other services.
+    build: ./hms-standalone-s3
+    ports:
+      - "9083:9083"
+    environment:
+      - HMS_LOGLEVEL=INFO
+
+  ###################
+  # PyIceberg tools #
+  ###################
+  # To interact with Iceberg tables from Python.
+  pyiceberg:
+    image: python:3.12-bookworm
+    container_name: pyiceberg
+    environment:
+      PYICEBERG_CATALOG__DEFAULT__URI: thrift://hms:9083
+      PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID: admin
+      PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY: password
+      PYICEBERG_CATALOG__DEFAULT__S3__PATH_STYLE_ACCESS: "true"
+      PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT: http://minio:9000
+    entrypoint: >
+      /bin/sh -c "
+      pip install pyiceberg["s3fs,hive,pyarrow"];
+      sleep infinity
+      "
+
+
+# Without a network explicitly defined, you hit this Hive/Thrift error
+# java.net.URISyntaxException Illegal character in hostname
+# https://github.com/TrivadisPF/platys-modern-data-platform/issues/231
+networks:
+  default:
+     name: zaphod
