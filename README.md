@@ -8,7 +8,6 @@ The workshop is divided into parts:
 1. Debezium and Kafka Connect
 2. Flink with Kafka
 3. Flink with Iceberg
-4. Flink with Nessie for data versioning
 
 
 
