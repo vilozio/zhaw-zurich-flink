@@ -3,8 +3,10 @@ SET 'sql-client.display.color-schema' = 'Dracula';
 -- Set the parallelism.
 SET parallelism.default = 2;
 
+-- Create a Kafka source table.
 CREATE TABLE t_k_orders
   (
+    -- Data is located under the `payload` field in Debezium format.
     `payload` ROW(
         order_id           STRING,
         customer_id        STRING,
@@ -30,6 +32,8 @@ SET 'execution.checkpointing.interval' = '60sec';
 SET 'pipeline.operator-chaining.enabled' = 'false';
 
 -- Create a running streaming job to write to Iceberg.
+-- This will be a long-running query that will not block the terminal.
+-- It might take few seconds to start.
 CREATE TABLE t_i_orders 
   WITH (
   'connector' = 'iceberg',
@@ -52,6 +56,6 @@ CREATE TABLE t_i_orders
   FROM t_k_orders;
 
 
--- After 60 seconds, check the Iceberg table.
+-- Optional, after 60 seconds, check the Iceberg table.
 -- This will be another running query.
 SELECT * FROM t_i_orders;

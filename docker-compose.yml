@@ -195,6 +195,23 @@ services:
       pip install pyiceberg["s3fs,hive,pyarrow"];
       sleep infinity
       "
+    
+  ##################
+  # Test Data      #
+  ##################
+  # Uncomment the following to generate test data...
+
+  # shadowtraffic:
+  #   # watch 'docker-compose exec shadowtraffic curl -s localhost:9400/metrics |grep events_sent'
+  #   image: shadowtraffic/shadowtraffic:0.6.0
+  #   container_name: shadowtraffic
+  #   depends_on:
+  #     - postgres
+  #   env_file:
+  #     - shadowtraffic/license.env
+  #   volumes:
+  #     - ./shadowtraffic:/data
+  #   command: --config /data/postgres-retail.json
 
 
 # Without a network explicitly defined, you hit this Hive/Thrift error

@@ -1,0 +1,84 @@
+{
+    "generators": [
+        {
+            "table": "customers",
+            "row": {
+                "customer_id": { "_gen": "uuid" },
+                "name": {
+                    "_gen": "string", "expr": "#{Name.fullName}"
+                },
+                "birthday": {
+                    "_gen": "formatDateTime",
+                    "format": "yyyy-MM-dd",
+                    "ms": {
+                        "_gen": "uniformDistribution",
+                        "bounds": [ 157762800, 1072911600 ]
+                    }
+                },
+                "direct_subscription": {
+                    "_gen": "boolean"
+                },
+                "membership_level": {
+                    "_gen": "oneOf", "choices": ["free", "pro", "elite"]
+                },
+                "shipping_address": {
+                    "_gen": "string", "expr": "#{Address.fullAddress}"
+                },
+                "activation_date": {
+                    "_gen": "formatDateTime",
+                    "ms": {
+                        "_gen": "uniformDistribution",
+                        "bounds": [ 1710176905, { "_gen": "now" } ]
+                    }
+                }
+            }
+        },
+        {
+            "table": "orders",
+            "row": {
+                "order_id": { "_gen": "uuid" },
+                "customer_id": {
+                    "_gen": "lookup",
+                    "table": "customers",
+                    "path": ["customer_id"]
+                },
+                "order_number": {
+                    "_gen": "sequentialInteger"
+                },
+                "product": { "_gen": "string", "expr": "#{Commerce.productName}" },
+                "backordered": {
+                    "_gen": "weightedOneOf",
+                    "choices": [
+                        { "weight": 19, "value": false },
+                        { "weight": 1,  "value": true }
+                    ]
+                },
+                "cost": {
+                    "_gen": "normalDistribution",
+                    "mean": 100,
+                    "sd": 20
+                },
+                "description": { "_gen": "string", "expr": "#{Lorem.paragraph}" },
+                "create_ts": { "_gen": "now" },
+                "credit_card_number": { "_gen": "string", "expr": "#{Business.creditCardNumber}" },
+                "discount_percent": {
+                    "_gen": "uniformDistribution",
+                    "bounds": [0, 10],
+                    "decimals": 0
+                }
+            }
+        }
+    ],
+    "connections": {
+        "pg": {
+            "kind": "postgres",
+            "connectionConfigs": {
+                "host": "postgres",
+                "port": 5432,
+                "db": "postgres",
+                "username": "postgres",
+                "password": "postgres"
+            }
+        }
+    }
+}

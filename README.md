@@ -277,12 +277,95 @@ of the data flow.
 
 1. Try to produce more messages to the customers topic in a separate terminal and see the streaming query.
 
-2. Try to change the SQL query to aggregate the data by `membership_level` and count the number of customers. Produce more messages to the topic and see the results.
+2. Try to change the SQL query to aggregate the data by `membership_level` and count the number of customers. 
+   Produce more messages to the topic and see the results.
 
 
 To stop the streaming query, press `Q` (You can also cancel it from Flink dashboard).
 
 To exit the Flink SQL Client, type `QUIT;` and press Enter.
+
+To stop the containers, run (removing the volumes to remove the data as well):
+
+```bash
+docker-compose down -v
+```
+
+
+
+## Part 3. Run Flink with Iceberg in Docker Compose
+
+Start all services with the following command
+
+```bash
+docker-compose up -d --build
+```
+
+Follow the steps from **Part 1.** to register Postgres Debezium connector and insert data into 
+the Postgres tables.
+
+Run an interactive FLink SQL Client:
+
+```bash
+docker-compose run sql-client
+```
+
+Run the SQL commands from file `flink/kafka-to-iceberg.sql`. This will create a table in Iceberg format
+and a running Flink job that reads from the Kafka topic and writes to the Iceberg table.
+
+Iceberg data is located in MinIO storage, S3-compatible object storage. You can access the MinIO UI at
+http://localhost:9001. Use the following credentials: `admin` and `password`.
+
+Tables are stored in PARQUET format.
+
+To stop the containers, run (removing the volumes to remove the data as well):
+
+```bash
+docker-compose down -v
+```
+
+
+**TRY IT OUT:**
+
+Try to run the full example with simulated data and see the results in the Iceberg table.
+
+1. You can use [ShadowTraffic](https://shadowtraffic.io/) to generate data. 
+   Go to the page https://shadowtraffic.io/pricing.html and click on `Get free trial`.
+   Enter your email and you will receive a trial licence to your mailbox. 
+   Put the `license.env` file in the `shadowtraffic` folder.
+
+2. In the `docker-compose.yml` file, uncomment the `shadowtraffic` service.
+   Also comment the `volumes` part in the `postgres` service to avoid 
+   column types conflict, let the shadowtraffic create the tables.
+
+3. Start all services with the following command:
+
+```bash
+docker-compose up -d --build
+```
+
+4. Run again the **Part 1.** to register Postgres Debezium connector, but without inserting data.
+
+5. Run the rest steps of **Part 3.** to create the Iceberg table and run the Flink job.
+
+
+**Advanced**.
+
+Try to create a second source table for the `customers` topic. Then write an aggregate query 
+to group the data by `membership_level` and count the number of customers. Write the results to a
+second Iceberg table called `membership_level_counts`.
+
+*HINT* Aggregated write is an UPSERT operation that requires a primary key. 
+You can use the `membership_level` as a primary key. Here is an example how to configure the Iceberg table
+with primary key and upsert write enabled:
+
+```sql
+CREATE TABLE sample (
+    `id` INT COMMENT 'unique id',
+    `data` STRING NOT NULL,
+    PRIMARY KEY(`id`) NOT ENFORCED
+) WITH ('format-version'='2', 'write.upsert.enabled'='true');
+```
 
 To stop the containers, run (removing the volumes to remove the data as well):
 
