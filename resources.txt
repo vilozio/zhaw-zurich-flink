@@ -1,0 +1,27 @@
+Flink (intro)
+--------
+
+https://developer.confluent.io/courses/apache-flink/intro/
+
+
+Debezium
+--------
+
+https://github.com/debezium/debezium-examples/tree/main/machine-learning/flink-spark-iris
+
+
+Flink with iceberg
+--------
+https://www.decodable.co/blog/kafka-to-iceberg-with-flink
+
+https://github.com/decodableco/examples/tree/main/catalogs/flink-iceberg-hive
+https://github.com/decodableco/examples/tree/main/kafka-iceberg/apache-flink
+
+
+Nessie
+--------
+
+https://www.dremio.com/blog/intro-to-dremio-nessie-and-apache-iceberg-on-your-laptop/
+https://github.com/developer-advocacy-dremio/flink-iceberg-nessie-environment
+
+--> https://www.dremio.com/blog/using-flink-with-apache-iceberg-and-nessie/

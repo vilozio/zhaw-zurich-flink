@@ -19,6 +19,12 @@ services:
       FLINK_PROPERTIES=
       jobmanager.rpc.address: jobmanager
       rest.flamegraph.enabled: true
+    - AWS_ACCESS_KEY_ID=admin
+    - AWS_SECRET_ACCESS_KEY=password
+    - AWS_REGION=us-east-1
+    - AWS_DEFAULT_REGION=us-east-1
+    - S3_ENDPOINT=http://minio:9000
+    - S3_PATH_STYLE_ACCESS=true
   # Flink TaskManager - the worker nodes of the Flink cluster.
   taskmanager:
     build: ./flink
@@ -33,6 +39,12 @@ services:
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
         taskmanager.numberOfTaskSlots: 4
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - AWS_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+      - S3_ENDPOINT=http://minio:9000
+      - S3_PATH_STYLE_ACCESS=true
   # Optional Flink SQL Client - to interact with Flink using SQL.
   sql-client:
     build: ./flink
@@ -44,6 +56,12 @@ services:
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
         rest.address: jobmanager
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password
+      - AWS_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-1
+      - S3_ENDPOINT=http://minio:9000
+      - S3_PATH_STYLE_ACCESS=true
   
   ##################
   # POSTGRES DB    #
@@ -176,6 +194,20 @@ services:
       - "9083:9083"
     environment:
       - HMS_LOGLEVEL=INFO
+  # Nessie Catalog Server Using In-Memory Store
+  nessie:
+    image: projectnessie/nessie:0.76.6
+    container_name: nessie
+    ports:
+      - 19120:19120
+    environment:
+    - QUARKUS_PROFILE=s3
+    - NESSIE_VERSION_STORE=s3
+    - NESSIE_STORAGE_BUCKET=warehouse   # This is the bucket name
+    - NESSIE_S3_ENDPOINT=http://minio:9000
+    - AWS_ACCESS_KEY_ID=admin
+    - AWS_SECRET_ACCESS_KEY=password
+    - S3_PATH_STYLE_ACCESS=true   # Required for MinIO to work with Nessie
 
   ###################
   # PyIceberg tools #
