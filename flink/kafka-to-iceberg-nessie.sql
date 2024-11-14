@@ -36,16 +36,18 @@ SET 'pipeline.operator-chaining.enabled' = 'false';
 -- https://projectnessie.org/iceberg/flink/
 CREATE CATALOG nessie WITH (
   'type' = 'iceberg',
-  'catalog-impl' = 'org.apache.iceberg.nessie.NessieCatalog',
+  'catalog-impl' = 'org.apache.iceberg.nessie.NessieCatalog',  -- Use Nessie Catalog implementation.
   'io-impl' = 'org.apache.iceberg.aws.s3.S3FileIO',
   'authentication.type' = 'none',
   'uri' = 'http://nessie:19120/api/v1',
   'ref' = 'main',
   'client.assume-role.region'='us-east-1',
   'warehouse' = 's3a://warehouse',
+  's3.path-style-access' = 'true',    -- Required for Minio
   's3.endpoint' = 'http://minio:9000'
 );
 
+-- Create a database namespace.
 CREATE DATABASE nessie.warehouse;
 
 -- Switch to the Nessie Iceberg catalog.
@@ -73,4 +75,4 @@ CREATE TABLE `nessie`.`warehouse`.t_i_orders
 
 -- Optional, after 60 seconds, check the Iceberg table.
 -- This will be another running query.
-SELECT * FROM `default_catalog`.`default_database`.t_i_orders;
+SELECT * FROM `nessie`.`warehouse`.t_i_orders;
