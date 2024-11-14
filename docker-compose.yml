@@ -210,6 +210,25 @@ services:
     - AWS_ACCESS_KEY_ID=admin
     - AWS_SECRET_ACCESS_KEY=password
     - S3_PATH_STYLE_ACCESS=true   # Required for MinIO to work with Nessie
+  # Nessie CLI to interact with Nessie.
+  # TIP: if you use python with pip, you can also install pynessie
+  # on your computer and connect to nessie without nessie-cli.
+  # Run this to install pynessie
+  #
+  #    pip install pynessie
+  #
+  # After it is installed you can run commands like this (assuming that
+  # nessie is accesible from localhost:19120)
+  #
+  #    nessie branch
+  nessie-cli:
+    image: ghcr.io/projectnessie/nessie-cli:0.99.0
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    depends_on:
+      - nessie
+    command:
+      - --uri=http://nessie:19120/api/v2
 
   ###################
   # PyIceberg tools #
